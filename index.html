@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Degen League</title>
+<meta name="description" content="Fantasy league for memecoin traders. Pick 5 real wallets, score on their weekly returns.">
+<meta property="og:title" content="Degen League">
+<meta property="og:description" content="Pick 5 real memecoin traders. Score on their on-chain returns. Free to play.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;700&display=swap">
+<style>
+/* Layout: stadium scoreboard. Market of traders on the left, your locker (squad + budget) pinned on the right; tabs for live and standings. */
+:root {
+  --pitch: #0f1a17;       /* page */
+  --turf: #16241f;        /* panels */
+  --line: #2b3d36;        /* rules */
+  --chalk: #eef3ee;       /* main text */
+  --chalk-dim: #9fb3aa;   /* secondary text */
+  --led: #ffb627;         /* scoreboard amber: credits, points, captain */
+  --up: #3ddc84; --down: #ff5c6c;
+  --font-display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --font-body: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; background: var(--pitch); color: var(--chalk); }
+body { font: 15px/1.5 var(--font-body); padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--led); outline-offset: 2px; }
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.up { color: var(--up); } .down { color: var(--down); } .dim { color: var(--chalk-dim); }
+
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 64px; display: flex; flex-direction: column; gap: 18px; }
+header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
+.brand { font: 900 clamp(34px, 6vw, 52px)/0.9 var(--font-display); letter-spacing: .01em; margin: 0; text-transform: uppercase; }
+.brand span { color: var(--led); }
+.sub { margin: 4px 0 0; color: var(--chalk-dim); font-size: 14px; }
+.wallet { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: transparent; border-radius: 10px; padding: 10px 14px; font-weight: 600; font-size: 14px; }
+.btn:hover { border-color: var(--chalk-dim); }
+.btn.primary { background: var(--led); color: #1d1300; border-color: var(--led); }
+.btn.primary:disabled { opacity: .5; cursor: not-allowed; }
+.btn.small { padding: 6px 10px; font-size: 13px; border-radius: 8px; }
+.chip { font: 500 13px var(--font-num); border: 1px solid var(--line); padding: 6px 10px; border-radius: 999px; }
+
+.board { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.board > div { background: var(--turf); padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.board .k { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--chalk-dim); font-weight: 700; }
+.board .v { font: 700 24px var(--font-num); color: var(--led); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.banner { background: #2a2208; border: 1px solid #5c4710; color: #ffd98a; padding: 10px 12px; border-radius: 10px; font-size: 14px; }
+.error { background: #2c1216; border: 1px solid #6b2430; color: #ffb3bd; padding: 10px 12px; border-radius: 10px; font-size: 14px; }
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tabs button { background: none; border: 0; border-bottom: 3px solid transparent; padding: 10px 14px; font: 700 18px var(--font-display); text-transform: uppercase; letter-spacing: .04em; color: var(--chalk-dim); white-space: nowrap; }
+.tabs button[aria-selected="true"] { color: var(--chalk); border-bottom-color: var(--led); }
+
+.pick { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+@media (max-width: 880px) { .pick { grid-template-columns: minmax(0, 1fr); } .locker { order: -1; } }
+.tools { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.tools input, .tools select { background: var(--turf); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 14px; }
+.tools input { flex: 1 1 180px; min-width: 0; }
+.market { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.mrow { display: grid; grid-template-columns: minmax(0, 1.6fr) 64px 72px 72px 52px 74px; gap: 8px; align-items: center; padding: 9px 12px; border-top: 1px solid var(--line); }
+.mrow:first-child { border-top: 0; }
+.mhead { background: var(--turf); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--chalk-dim); font-weight: 700; }
+.mrow.on { background: #1d2f22; }
+.who { display: flex; flex-direction: column; min-width: 0; }
+.who b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.who a { color: var(--chalk-dim); font: 12px var(--font-num); text-decoration: none; }
+.who a:hover { text-decoration: underline; }
+.price { font: 700 16px var(--font-num); color: var(--led); }
+.delta { font: 11px var(--font-num); margin-left: 2px; }
+.r { text-align: right; }
+@media (max-width: 560px) {
+  .mrow { grid-template-columns: minmax(0, 1fr) 54px 64px 70px; }
+  .mrow .hide-sm { display: none; }
+}
+
+.locker { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); background: var(--turf); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+@media (max-width: 880px) { .locker { position: static; } }
+.locker h2 { margin: 0; font: 900 24px var(--font-display); text-transform: uppercase; }
+.budget { display: flex; justify-content: space-between; align-items: baseline; }
+.budget .left { font: 700 28px var(--font-num); color: var(--led); }
+.meter { height: 8px; background: var(--pitch); border-radius: 99px; overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--led); width: 0; transition: width .25s ease; }
+.meter.over i { background: var(--down); }
+.slots { display: flex; flex-direction: column; gap: 6px; }
+.slot { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; min-height: 46px; }
+.slot.empty { border-style: dashed; color: var(--chalk-dim); grid-template-columns: 1fr; font-size: 14px; }
+.cap { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line); background: transparent; font: 700 12px var(--font-num); color: var(--chalk-dim); padding: 0; }
+.cap[aria-pressed="true"] { background: var(--led); color: #1d1300; border-color: var(--led); }
+.slot b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.x { background: none; border: 0; color: var(--chalk-dim); font-size: 18px; padding: 0 4px; }
+.locker label { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--chalk-dim); font-weight: 700; }
+.locker input { width: 100%; background: var(--pitch); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; }
+.note { font-size: 13px; color: var(--chalk-dim); margin: 0; }
+.saved { color: var(--up); font-size: 14px; margin: 0; min-height: 1.4em; }
+
+.panel { background: var(--turf); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.panel h2 { margin: 0; font: 900 24px var(--font-display); text-transform: uppercase; }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th { text-align: left; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--chalk-dim); padding: 8px; border-bottom: 1px solid var(--line); }
+.table td { padding: 9px 8px; border-bottom: 1px solid var(--line); }
+.table tr.me td { background: #2a2208; }
+.table .r { text-align: right; }
+.table .rank { font: 700 15px var(--font-num); color: var(--led); width: 44px; }
+.scroll { overflow-x: auto; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { background: none; border: 0; padding: 8px 12px; font-weight: 600; font-size: 14px; color: var(--chalk-dim); }
+.seg button[aria-pressed="true"] { background: var(--chalk); color: var(--pitch); }
+.rules { columns: 2 260px; column-gap: 28px; margin: 0; padding-left: 18px; color: var(--chalk-dim); font-size: 14px; }
+.rules li { margin-bottom: 6px; break-inside: avoid; }
+.rules b { color: var(--chalk); }
+.walletpick { display: flex; gap: 8px; flex-wrap: wrap; }
+@media (prefers-reduced-motion: reduce) { .meter i { transition: none; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <div>
+      <h1 class="brand">Degen <span>League</span></h1>
+      <p class="sub">Pick 5 real memecoin traders. Score on what their wallets do this week. Free to play.</p>
+    </div>
+    <div class="wallet" id="walletBox">
+      <button class="btn primary" id="connect" type="button">Connect wallet</button>
+    </div>
+  </header>
+
+  <div class="error" id="err" hidden></div>
+  <div class="banner" id="demo" hidden>Demo mode: trader scores are simulated until a Helius key is added.</div>
+  <div class="walletpick" id="noWallet" hidden>
+    <span class="dim" style="align-self:center">No wallet found in this browser.</span>
+    <a class="btn" id="openPhantom" target="_blank" rel="noopener">Open in Phantom</a>
+    <a class="btn" id="openSolflare" target="_blank" rel="noopener">Open in Solflare</a>
+  </div>
+
+  <section class="board" aria-label="This week">
+    <div><span class="k">Picks lock in</span><span class="v" id="countdown">–</span></div>
+    <div><span class="k">Next week</span><span class="v" id="weekLabel">–</span></div>
+    <div><span class="k">Teams entered</span><span class="v" id="players">–</span></div>
+    <div><span class="k">Your live points</span><span class="v" id="myPoints">–</span></div>
+  </section>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="pick" id="tab-pick">Pick team</button>
+    <button role="tab" aria-selected="false" data-tab="live" id="tab-live">My live team</button>
+    <button role="tab" aria-selected="false" data-tab="board" id="tab-board">Leaderboard</button>
+    <button role="tab" aria-selected="false" data-tab="rules" id="tab-rules">Rules</button>
+  </nav>
+
+  <section id="view-pick" class="pick">
+    <div style="min-width:0">
+      <div class="tools">
+        <input id="search" type="search" placeholder="Search traders" aria-label="Search traders">
+        <select id="sort" aria-label="Sort traders">
+          <option value="price">Price: high to low</option>
+          <option value="cheap">Price: low to high</option>
+          <option value="live">This week's return</option>
+          <option value="last">Last week's return</option>
+          <option value="picked">Most picked</option>
+        </select>
+      </div>
+      <div class="market" id="market" role="list"></div>
+    </div>
+
+    <aside class="locker" aria-label="Your squad">
+      <h2>Your squad</h2>
+      <div class="budget"><span class="dim" id="budgetText">Credits left</span><span class="left num" id="left">100</span></div>
+      <div class="meter" id="meter"><i></i></div>
+      <div class="slots" id="slots"></div>
+      <p class="note">Tap <b>C</b> to make a trader your captain. Captains score double.</p>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <label for="nickname">Team name</label>
+        <input id="nickname" maxlength="20" placeholder="Shown on the leaderboard">
+      </div>
+      <button class="btn primary" id="save" type="button" disabled>Save team</button>
+      <p class="saved" id="saveMsg" aria-live="polite"></p>
+    </aside>
+  </section>
+
+  <section id="view-live" class="panel" hidden>
+    <h2>This week's team</h2>
+    <div id="liveBody"></div>
+  </section>
+
+  <section id="view-board" class="panel" hidden>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <h2>Leaderboard</h2>
+      <div class="seg" role="group" aria-label="Week">
+        <button type="button" id="lbCur" aria-pressed="true">This week</button>
+        <button type="button" id="lbLast" aria-pressed="false">Last week</button>
+      </div>
+    </div>
+    <div class="scroll"><table class="table"><thead><tr><th>#</th><th>Team</th><th>Captain</th><th class="r">Points</th></tr></thead><tbody id="lbBody"></tbody></table></div>
+    <p class="note" id="lbNote"></p>
+  </section>
+
+  <section id="view-rules" class="panel" hidden>
+    <h2>How it works</h2>
+    <ul class="rules">
+      <li><b>Pick 5 traders</b> from the market with a budget of <b>100 credits</b>. Stars cost more, so find cheap sleepers.</li>
+      <li><b>Choose a captain.</b> Their score counts double.</li>
+      <li><b>Teams lock Monday 00:00 UTC.</b> You pick for next week; you can change your team until it locks.</li>
+      <li><b>Score:</b> each trader's % return that week on coins they bought that week, read straight from their wallet. Sold coins count what they got back; coins still held count at today's price.</li>
+      <li><b>Your points</b> = the 5 returns added up, captain twice. Scores update through the week.</li>
+      <li>A trader who spends less than <b>1 SOL</b> in the week scores <b>0</b>.</li>
+      <li><b>Prices move every week:</b> big winners get more expensive, cold traders get cheaper.</li>
+      <li><b>Free to play.</b> Signing in only proves you own your wallet. It never moves funds.</li>
+      <li>Traders come from the public <a href="https://kolscan.io" target="_blank" rel="noopener" style="color:inherit">Kolscan</a> leaderboard. Just for fun, not financial advice.</li>
+    </ul>
+  </section>
+</main>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} } };
+  const short = (a) => a.slice(0, 4) + "…" + a.slice(-4);
+  const pct = (r) => (r == null ? "–" : (r > 0 ? "+" : "") + r.toFixed(1) + "%");
+  const cls = (r) => (r > 0 ? "up" : r < 0 ? "down" : "dim");
+
+  let state = null;           // /api/game response
+  let token = store.get("dl_token");
+  let squad = [];             // trader ids
+  let captain = null;
+  let dirty = false;
+  let skew = 0;               // server time - local time
+  let lbWeek = "current";
+
+  async function api(path, body, method) {
+    const res = await fetch(path, {
+      method: method || (body ? "POST" : "GET"),
+      headers: { "content-type": "application/json", ...(token ? { authorization: "Bearer " + token } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401 && token && !body?.address) { token = null; store.set("dl_token", null); }
+    if (!res.ok) throw new Error(data.error || "Something went wrong.");
+    return data;
+  }
+  function showError(msg) { $("err").textContent = msg; $("err").hidden = !msg; }
+
+  // ---------- wallet ----------
+  function provider() {
+    return window.phantom?.solana || window.solflare || window.backpack || window.solana || null;
+  }
+  function renderWallet() {
+    const box = $("walletBox"); box.replaceChildren();
+    if (state?.me) {
+      box.append(el("span", "chip", short(state.me.address)));
+      const out = el("button", "btn small", "Sign out"); out.type = "button";
+      out.onclick = async () => { try { await api("/api/auth?step=logout", {}); } catch {} token = null; store.set("dl_token", null); squad = []; captain = null; await load(); };
+      box.append(out);
+    } else {
+      const b = el("button", "btn primary", "Connect wallet"); b.type = "button"; b.id = "connect";
+      b.onclick = connect; box.append(b);
+    }
+  }
+  async function connect() {
+    showError("");
+    const p = provider();
+    if (!p) {
+      const url = encodeURIComponent(location.href), ref = encodeURIComponent(location.origin);
+      $("openPhantom").href = `https://phantom.app/ul/browse/${url}?ref=${ref}`;
+      $("openSolflare").href = `https://solflare.com/ul/v1/browse/${url}?ref=${ref}`;
+      $("noWallet").hidden = false;
+      return;
+    }
+    try {
+      const r = await p.connect();
+      const pk = r?.publicKey || p.publicKey;
+      const address = pk.toString();
+      const n = await api("/api/auth?step=nonce", { address });
+      const signed = await p.signMessage(new TextEncoder().encode(n.message), "utf8");
+      const sig = signed?.signature || signed;
+      const b64 = btoa(String.fromCharCode(...new Uint8Array(sig)));
+      const v = await api("/api/auth?step=verify", { address, nonce: n.nonce, signature: b64 });
+      token = v.token; store.set("dl_token", token);
+      await load();
+    } catch (e) {
+      showError(e?.message?.includes("User rejected") ? "Sign-in cancelled." : (e.message || "Couldn't connect your wallet."));
+    }
+  }
+
+  // ---------- data ----------
+  async function load() {
+    try {
+      state = await api("/api/game");
+      skew = state.now * 1000 - Date.now();
+      showError("");
+    } catch (e) { showError(e.message); return; }
+    if (!dirty) {
+      const t = state.me?.upcoming;
+      squad = t ? [...t.picks] : [];
+      captain = t ? t.captain : null;
+      $("nickname").value = state.me?.nickname && !/…/.test(state.me.nickname) ? state.me.nickname : (t?.nickname && !/…/.test(t.nickname) ? t.nickname : "");
+    }
+    $("demo").hidden = !state.demo;
+    $("players").textContent = state.players;
+    $("weekLabel").textContent = new Date(state.upcoming.start * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+    const cur = state.me?.current;
+    $("myPoints").textContent = cur ? (cur.points > 0 ? "+" : "") + cur.points.toFixed(1) : "–";
+    renderWallet(); renderMarket(); renderSquad(); renderLive();
+    if (!$("view-board").hidden) loadBoard();
+    maybeRefresh();
+  }
+
+  let refreshed = false;
+  function maybeRefresh() {
+    if (refreshed || !state) return;
+    const now = state.now;
+    const stale = state.traders.some((t) => !t.live || now - (t.live.at || 0) > 1800);
+    if (!stale) return;
+    refreshed = true;
+    fetch("/api/cron", { method: "POST" }).then((r) => r.json()).then((r) => { if (r && r.refreshed) setTimeout(load, 300); }).catch(() => {});
+  }
+
+  // ---------- market ----------
+  const byId = () => Object.fromEntries((state?.traders || []).map((t) => [t.id, t]));
+  const cost = () => { const m = byId(); return squad.reduce((s, id) => s + (m[id]?.price || 0), 0); };
+
+  function renderMarket() {
+    const box = $("market"); box.replaceChildren();
+    const head = el("div", "mrow mhead");
+    head.append(el("span", null, "Trader"), el("span", "r", "Price"), el("span", "r", "Live"), el("span", "r hide-sm", "Last wk"), el("span", "r hide-sm", "Picked"), el("span", null, ""));
+    box.append(head);
+    if (!state) return;
+    const q = $("search").value.trim().toLowerCase();
+    const sort = $("sort").value;
+    const key = { price: (t) => -t.price, cheap: (t) => t.price, live: (t) => -(t.live?.ret ?? -1e9), last: (t) => -(t.last?.ret ?? -1e9), picked: (t) => -t.pickedPct }[sort];
+    const list = state.traders.filter((t) => !q || t.name.toLowerCase().includes(q) || t.id.toLowerCase().startsWith(q)).sort((a, b) => key(a) - key(b) || a.name.localeCompare(b.name));
+    const left = state.budget - cost();
+    for (const t of list) {
+      const on = squad.includes(t.id);
+      const row = el("div", "mrow" + (on ? " on" : "")); row.setAttribute("role", "listitem");
+      const who = el("div", "who"); who.append(el("b", null, t.name));
+      const a = el("a", null, short(t.id)); a.href = "https://kolscan.io/account/" + t.id; a.target = "_blank"; a.rel = "noopener";
+      who.append(a);
+      const price = el("span", "r"); price.append(el("span", "price", String(t.price)));
+      const d = t.price - (t.priceNow ?? t.price);
+      if (d) price.append(el("span", "delta " + (d > 0 ? "up" : "down"), (d > 0 ? "▲" : "▼") + Math.abs(d)));
+      const live = el("span", "r num " + cls(t.live?.ret), t.live?.inactive ? "idle" : pct(t.live?.ret));
+      const last = el("span", "r num hide-sm " + cls(t.last?.ret), t.last?.inactive ? "idle" : pct(t.last?.ret));
+      const picked = el("span", "r num hide-sm dim", t.pickedPct + "%");
+      const btn = el("button", "btn small", on ? "Remove" : "Add"); btn.type = "button";
+      const canAdd = squad.length < state.teamSize && t.price <= left;
+      if (!on && !canAdd) { btn.disabled = true; btn.style.opacity = .4; btn.title = squad.length >= state.teamSize ? "Squad is full" : "Not enough credits"; }
+      btn.setAttribute("aria-label", (on ? "Remove " : "Add ") + t.name);
+      btn.onclick = () => toggle(t.id);
+      row.append(who, price, live, last, picked, btn);
+      box.append(row);
+    }
+  }
+
+  function toggle(id) {
+    if (squad.includes(id)) { squad = squad.filter((x) => x !== id); if (captain === id) captain = null; }
+    else if (squad.length < state.teamSize) { squad.push(id); if (!captain) captain = id; }
+    dirty = true; $("saveMsg").textContent = "";
+    renderMarket(); renderSquad();
+  }
+
+  function renderSquad() {
+    const m = byId();
+    const spent = cost(), left = (state?.budget || 100) - spent;
+    $("left").textContent = left;
+    $("meter").classList.toggle("over", left < 0);
+    $("meter").firstElementChild.style.width = Math.min(100, (spent / (state?.budget || 100)) * 100) + "%";
+    const slots = $("slots"); slots.replaceChildren();
+    for (let i = 0; i < (state?.teamSize || 5); i++) {
+      const id = squad[i];
+      if (!id) { slots.append(el("div", "slot empty", "Empty slot · pick a trader")); continue; }
+      const t = m[id] || { name: short(id), price: 0 };
+      const s = el("div", "slot");
+      const c = el("button", "cap", "C"); c.type = "button"; c.setAttribute("aria-pressed", String(captain === id)); c.setAttribute("aria-label", "Make " + t.name + " captain");
+      c.onclick = () => { captain = id; dirty = true; renderSquad(); };
+      const x = el("button", "x", "×"); x.type = "button"; x.setAttribute("aria-label", "Remove " + t.name); x.onclick = () => toggle(id);
+      s.append(c, el("b", null, t.name), el("span", "price", String(t.price)), x);
+      slots.append(s);
+    }
+    const ready = squad.length === (state?.teamSize || 5) && captain && left >= 0;
+    $("save").disabled = !ready;
+    $("save").textContent = state?.me ? (state.me.upcoming && !dirty ? "Team saved ✓" : "Save team") : "Connect wallet to save";
+    if (!state?.me) $("save").disabled = false;
+  }
+
+  $("save").onclick = async () => {
+    if (!state?.me) return connect();
+    $("save").disabled = true; $("saveMsg").textContent = "";
+    try {
+      await api("/api/game", { picks: squad, captain, nickname: $("nickname").value });
+      dirty = false;
+      $("saveMsg").textContent = "Saved. You can change it until the countdown hits zero.";
+      await load();
+    } catch (e) { $("saveMsg").textContent = ""; showError(e.message); renderSquad(); }
+  };
+  $("nickname").addEventListener("input", () => { dirty = true; renderSquad(); });
+  $("search").addEventListener("input", renderMarket);
+  $("sort").addEventListener("change", renderMarket);
+
+  // ---------- live team ----------
+  function renderLive() {
+    const box = $("liveBody"); box.replaceChildren();
+    const cur = state?.me?.current;
+    if (!state?.me) { box.append(el("p", "note", "Connect your wallet to see your team.")); return; }
+    if (!cur) { box.append(el("p", "note", "You don't have a team this week. Pick one in the Pick team tab: it starts playing Monday 00:00 UTC.")); return; }
+    const m = byId();
+    const top = el("div", "board");
+    const cell = (k, v) => { const d = el("div"); d.append(el("span", "k", k), el("span", "v", v)); return d; };
+    top.append(cell("Points", (cur.points > 0 ? "+" : "") + cur.points.toFixed(1)), cell("Rank", cur.rank ? `${cur.rank} / ${cur.players}` : "–"));
+    box.append(top);
+    const wrap = el("div", "scroll"); const tbl = el("table", "table");
+    const thead = el("thead"); const hr = el("tr");
+    ["Trader", "Return", "Spent", "Trades", "Points"].forEach((h, i) => hr.append(el("th", i ? "r" : null, h)));
+    thead.append(hr); tbl.append(thead);
+    const tb = el("tbody");
+    for (const id of cur.picks) {
+      const t = m[id] || { name: short(id) }; const l = t.live || {};
+      const tr = el("tr");
+      const name = el("td"); name.append(el("span", null, t.name + (id === cur.captain ? "  " : "")));
+      if (id === cur.captain) name.append(el("span", "chip", "C ×2"));
+      const pts = (l.ret || 0) * (id === cur.captain ? 2 : 1);
+      tr.append(name, el("td", "r num " + cls(l.ret), l.inactive ? "idle" : pct(l.ret)), el("td", "r num dim", l.spent != null ? l.spent + " SOL" : "–"), el("td", "r num dim", l.trades ?? "–"), el("td", "r num " + cls(pts), (pts > 0 ? "+" : "") + pts.toFixed(1)));
+      tb.append(tr);
+    }
+    tbl.append(tb); wrap.append(tbl); box.append(wrap);
+    const newest = Math.max(0, ...cur.picks.map((id) => m[id]?.live?.at || 0));
+    if (newest) box.append(el("p", "note", "Scores updated " + new Date(newest * 1000).toLocaleString()));
+  }
+
+  // ---------- leaderboard ----------
+  async function loadBoard() {
+    const body = $("lbBody");
+    try {
+      const lb = await api("/api/leaderboard?week=" + lbWeek);
+      body.replaceChildren();
+      if (!lb.rows.length) { const tr = el("tr"); const td = el("td", "dim", lbWeek === "current" ? "No teams this week yet. The first teams start playing next Monday." : "No teams last week."); td.colSpan = 4; tr.append(td); body.append(tr); }
+      for (const r of lb.rows) {
+        const tr = el("tr", r.me ? "me" : null);
+        tr.append(el("td", "rank", String(r.rank)), el("td", null, r.name), el("td", "dim", r.captain || "–"), el("td", "r num " + cls(r.points), (r.points > 0 ? "+" : "") + r.points.toFixed(1)));
+        body.append(tr);
+      }
+      $("lbNote").textContent = `${lb.players} team${lb.players === 1 ? "" : "s"}` + (lb.me && lb.me.rank > lb.rows.length ? ` · you are #${lb.me.rank}` : "");
+    } catch (e) { $("lbNote").textContent = e.message; }
+  }
+  $("lbCur").onclick = () => { lbWeek = "current"; $("lbCur").setAttribute("aria-pressed", "true"); $("lbLast").setAttribute("aria-pressed", "false"); loadBoard(); };
+  $("lbLast").onclick = () => { lbWeek = "last"; $("lbLast").setAttribute("aria-pressed", "true"); $("lbCur").setAttribute("aria-pressed", "false"); loadBoard(); };
+
+  // ---------- tabs & countdown ----------
+  document.querySelectorAll(".tabs button").forEach((b) => {
+    b.onclick = () => {
+      document.querySelectorAll(".tabs button").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
+      for (const v of ["pick", "live", "board", "rules"]) $("view-" + v).hidden = v !== b.dataset.tab;
+      if (b.dataset.tab === "board") loadBoard();
+      try { history.replaceState(null, "", "#" + b.dataset.tab); } catch {}
+    };
+  });
+  const startTab = (location.hash || "").slice(1);
+  if (["live", "board", "rules"].includes(startTab)) $("tab-" + startTab).click();
+
+  function tickClock() {
+    if (!state) return;
+    const s = Math.max(0, Math.floor((state.upcoming.lockAt * 1000 - (Date.now() + skew)) / 1000));
+    const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    $("countdown").textContent = d ? `${d}d ${h}h ${m}m` : `${h}h ${m}m ${String(sec).padStart(2, "0")}s`;
+    if (s === 0 && !tickClock.reloaded) { tickClock.reloaded = true; setTimeout(() => { tickClock.reloaded = false; dirty = false; load(); }, 5000); }
+  }
+  setInterval(tickClock, 1000);
+  $("connect").onclick = connect;
+  load().then(tickClock);
+})();
+</script>
+</body>
+</html>
