@@ -7,9 +7,11 @@ import { sessionAddress } from "../lib/auth.js";
 import { hasDatabase, hgetallJSON, redis } from "../lib/redis.js";
 import { readBody, send } from "../lib/http.js";
 import { TRADER_BY_ID } from "../lib/traders.js";
+import { ADMIN_WALLETS, PRIZES } from "../lib/config.js";
 
-const admins = () => (process.env.ADMIN_WALLETS || "").split(",").map((s) => s.trim()).filter(Boolean);
-const prizes = () => (process.env.PRIZES || "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 3);
+const list = (env, fallback) => (env ? env.split(",").map((s) => s.trim()).filter(Boolean) : fallback);
+const admins = () => list(process.env.ADMIN_WALLETS, ADMIN_WALLETS);
+const prizes = () => list(process.env.PRIZES, PRIZES).slice(0, 3);
 
 export default async function handler(req, res) {
   if (!hasDatabase() && process.env.VERCEL) return send(res, 503, { error: "The game database isn't connected yet." });

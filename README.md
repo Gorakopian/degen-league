@@ -42,11 +42,12 @@ choose a captain, and score on those wallets' on-chain returns each week. Free t
 4. **Settings → Environment Variables**, add:
    - `HELIUS_API_KEY`: your Helius key (the same one as Roaster is fine). Without it scores are simulated (demo mode).
    - `CRON_SECRET`: any long random text you make up. Protects the score updater.
-   - `ADMIN_WALLETS`: your own Solana wallet address. Lets you see winners' full wallets and mark prizes paid.
-   - `PRIZES` (optional): e.g. `1 SOL, 0.5 SOL, 0.25 SOL`. Shown on the Winners tab.
 5. **Deployments → Redeploy** so the new settings are used.
 
 ## Paying winners
+
+The admin wallet and the prizes (1 SOL, 0.5 SOL, 0.25 SOL) are set in `lib/config.js`.
+If the prizes change, also update the Rules text in `index.html`.
 
 Every Monday, open the **Winners** tab while signed in with your admin wallet. You'll see the top 3 of the week
 that just ended with their full wallet addresses. Send the prizes from your own wallet (Phantom), then press
