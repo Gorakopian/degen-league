@@ -22,7 +22,7 @@ choose a captain, and score on those wallets' on-chain returns each week. Free t
 | `api/game.js` | Loads the game (week, prices, live scores, your teams) and saves your team |
 | `api/leaderboard.js` | Weekly standings |
 | `api/cron.js` | Updates trader scores from the blockchain, a few traders at a time |
-| `lib/traders.js` | The 72 traders, their X accounts and starting prices. Edit this file to add or remove traders |
+| `lib/traders.js` | The 100 traders, their X accounts and starting prices. Edit this file to add or remove traders |
 | `lib/scoring.js` | Reads each trader's swaps for the week and works out their return |
 | `lib/game.js` | Budget rules, weekly prices, team points |
 | `lib/auth.js`, `lib/redis.js`, `lib/chain.js`, `lib/weeks.js`, `lib/http.js` | Helpers |
@@ -58,6 +58,6 @@ Without database keys it keeps everything in memory. `npm test` runs the tests.
 
 ## Good to know
 
-- Trader list sources: the public Kolscan leaderboard (kolscan.io) and KolExplorer (kolexplorer.com) for X accounts, October 2026.
+- Trader list sources: KolExplorer (kolexplorer.com) for X accounts and wallets, and the public Kolscan leaderboard (kolscan.io), October 2026.
 - Signing in only signs a text message. It can't move funds and costs nothing.
 - Free to play. If you add prizes later, keep entry free to stay clear of gambling rules, and check with a lawyer.
