@@ -160,6 +160,7 @@ header { display: flex; flex-wrap: wrap; align-items: center; justify-content: s
         <input id="search" type="search" placeholder="Search traders" aria-label="Search traders">
         <select id="sort" aria-label="Sort traders">
           <option value="price">Price: high to low</option>
+          <option value="famous">On X first</option>
           <option value="cheap">Price: low to high</option>
           <option value="live">This week's return</option>
           <option value="last">Last week's return</option>
@@ -334,14 +335,17 @@ header { display: flex; flex-wrap: wrap; align-items: center; justify-content: s
     if (!state) return;
     const q = $("search").value.trim().toLowerCase();
     const sort = $("sort").value;
-    const key = { price: (t) => -t.price, cheap: (t) => t.price, live: (t) => -(t.live?.ret ?? -1e9), last: (t) => -(t.last?.ret ?? -1e9), picked: (t) => -t.pickedPct }[sort];
-    const list = state.traders.filter((t) => !q || t.name.toLowerCase().includes(q) || t.id.toLowerCase().startsWith(q)).sort((a, b) => key(a) - key(b) || a.name.localeCompare(b.name));
+    const key = { price: (t) => -t.price, famous: (t) => (t.x ? 0 : 1000) - t.price, cheap: (t) => t.price, live: (t) => -(t.live?.ret ?? -1e9), last: (t) => -(t.last?.ret ?? -1e9), picked: (t) => -t.pickedPct }[sort];
+    const list = state.traders.filter((t) => !q || t.name.toLowerCase().includes(q) || (t.x || "").toLowerCase().includes(q.replace(/^@/, "")) || t.id.toLowerCase().startsWith(q)).sort((a, b) => key(a) - key(b) || a.name.localeCompare(b.name));
     const left = state.budget - cost();
     for (const t of list) {
       const on = squad.includes(t.id);
       const row = el("div", "mrow" + (on ? " on" : "")); row.setAttribute("role", "listitem");
       const who = el("div", "who"); who.append(el("b", null, t.name));
-      const a = el("a", null, short(t.id)); a.href = "https://kolscan.io/account/" + t.id; a.target = "_blank"; a.rel = "noopener";
+      const a = el("a", null, t.x ? "@" + t.x : short(t.id));
+      a.href = t.x ? "https://x.com/" + encodeURIComponent(t.x) : "https://kolscan.io/account/" + t.id;
+      a.target = "_blank"; a.rel = "noopener";
+      a.title = t.x ? "Open on X" : "Open wallet on Kolscan";
       who.append(a);
       const price = el("span", "r"); price.append(el("span", "price", String(t.price)));
       const d = t.price - (t.priceNow ?? t.price);

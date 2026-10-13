@@ -50,7 +50,7 @@ export default async function handler(req, res) {
       const live = curScores[t.id];
       const last = lastScores[t.id];
       return {
-        id: t.id, name: t.name,
+        id: t.id, name: t.name, x: t.x || null,
         price: upPrices[t.id], priceNow: curPrices[t.id],
         live: live ? { ret: live.ret, spent: live.spent, trades: live.trades, inactive: live.inactive, at: live.at } : null,
         last: last ? { ret: last.ret, inactive: last.inactive } : null,
