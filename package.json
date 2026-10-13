@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/dev.js",
-    "test": "node test/auth.test.js && node test/scoring.test.js && node test/game.test.js"
+    "test": "node test/auth.test.js && node test/scoring.test.js && node test/game.test.js && node test/extras.test.js"
   },
   "engines": {
     "node": ">=18"

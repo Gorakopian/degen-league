@@ -26,6 +26,7 @@ export default async function handler(req, res) {
       const nickname = cleanNickname(body.nickname, me);
       const team = { picks, captain: String(body.captain), nickname, at: Math.floor(Date.now() / 1000) };
       await redis("HSET", `teams:${cal.upcoming.id}`, me, JSON.stringify(team));
+      await redis("SET", "meta:firstWeek", cal.upcoming.id, "NX");
       await redis("SET", `user:${me}`, JSON.stringify({ nickname }));
       return send(res, 200, { ok: true, team, week: cal.upcoming.id });
     }

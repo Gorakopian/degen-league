@@ -19,6 +19,7 @@ const routes = {
   "/api/auth": () => import("../api/auth.js"),
   "/api/leaderboard": () => import("../api/leaderboard.js"),
   "/api/cron": () => import("../api/cron.js"),
+  "/api/winners": () => import("../api/winners.js"),
 };
 
 const port = Number(process.env.PORT) || 3000;

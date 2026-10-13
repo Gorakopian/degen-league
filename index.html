@@ -151,6 +151,7 @@ header { display: flex; flex-wrap: wrap; align-items: center; justify-content: s
     <button role="tab" aria-selected="true" data-tab="pick" id="tab-pick">Pick team</button>
     <button role="tab" aria-selected="false" data-tab="live" id="tab-live">My live team</button>
     <button role="tab" aria-selected="false" data-tab="board" id="tab-board">Leaderboard</button>
+    <button role="tab" aria-selected="false" data-tab="winners" id="tab-winners">Winners</button>
     <button role="tab" aria-selected="false" data-tab="rules" id="tab-rules">Rules</button>
   </nav>
 
@@ -196,10 +197,17 @@ header { display: flex; flex-wrap: wrap; align-items: center; justify-content: s
       <div class="seg" role="group" aria-label="Week">
         <button type="button" id="lbCur" aria-pressed="true">This week</button>
         <button type="button" id="lbLast" aria-pressed="false">Last week</button>
+        <button type="button" id="lbSeason" aria-pressed="false">Season</button>
       </div>
     </div>
-    <div class="scroll"><table class="table"><thead><tr><th>#</th><th>Team</th><th>Captain</th><th class="r">Points</th></tr></thead><tbody id="lbBody"></tbody></table></div>
+    <div class="scroll"><table class="table"><thead><tr><th>#</th><th>Team</th><th id="lbCol3">Captain</th><th class="r">Points</th></tr></thead><tbody id="lbBody"></tbody></table></div>
     <p class="note" id="lbNote"></p>
+  </section>
+
+  <section id="view-winners" class="panel" hidden>
+    <h2>Weekly winners</h2>
+    <p class="note" id="prizeNote"></p>
+    <div id="winnersBody" style="display:flex;flex-direction:column;gap:14px"></div>
   </section>
 
   <section id="view-rules" class="panel" hidden>
@@ -212,6 +220,8 @@ header { display: flex; flex-wrap: wrap; align-items: center; justify-content: s
       <li><b>Your points</b> = the 5 returns added up, captain twice. Scores update through the week.</li>
       <li>A trader who spends less than <b>1 SOL</b> in the week scores <b>0</b>.</li>
       <li><b>Prices move every week:</b> big winners get more expensive, cold traders get cheaper.</li>
+      <li><b>Open positions count.</b> Coins bought this week and still held are valued at their price when the week closes (Monday 00:00 UTC).</li>
+      <li><b>Season ranking</b> adds up your points from every week you played.</li>
       <li><b>Free to play.</b> Signing in only proves you own your wallet. It never moves funds.</li>
       <li>Traders come from the public <a href="https://kolscan.io" target="_blank" rel="noopener" style="color:inherit">Kolscan</a> leaderboard. Just for fun, not financial advice.</li>
     </ul>
@@ -441,32 +451,79 @@ header { display: flex; flex-wrap: wrap; align-items: center; justify-content: s
   // ---------- leaderboard ----------
   async function loadBoard() {
     const body = $("lbBody");
+    const season = lbWeek === "season";
+    $("lbCol3").textContent = season ? "Weeks · best" : "Captain";
     try {
       const lb = await api("/api/leaderboard?week=" + lbWeek);
       body.replaceChildren();
-      if (!lb.rows.length) { const tr = el("tr"); const td = el("td", "dim", lbWeek === "current" ? "No teams this week yet. The first teams start playing next Monday." : "No teams last week."); td.colSpan = 4; tr.append(td); body.append(tr); }
+      if (!lb.rows.length) {
+        const msg = { current: "No teams this week yet. The first teams start playing next Monday.", last: "No teams last week.", season: "The season starts when the first week is played." }[lbWeek];
+        const tr = el("tr"); const td = el("td", "dim", msg); td.colSpan = 4; tr.append(td); body.append(tr);
+      }
       for (const r of lb.rows) {
         const tr = el("tr", r.me ? "me" : null);
-        tr.append(el("td", "rank", String(r.rank)), el("td", null, r.name), el("td", "dim", r.captain || "–"), el("td", "r num " + cls(r.points), (r.points > 0 ? "+" : "") + r.points.toFixed(1)));
+        const third = season ? `${r.weeks} wk · best ${r.best > 0 ? "+" : ""}${(r.best ?? 0).toFixed(1)}` : (r.captain || "–");
+        tr.append(el("td", "rank", String(r.rank)), el("td", null, r.name), el("td", "dim", third), el("td", "r num " + cls(r.points), (r.points > 0 ? "+" : "") + r.points.toFixed(1)));
         body.append(tr);
       }
       $("lbNote").textContent = `${lb.players} team${lb.players === 1 ? "" : "s"}` + (lb.me && lb.me.rank > lb.rows.length ? ` · you are #${lb.me.rank}` : "");
     } catch (e) { $("lbNote").textContent = e.message; }
   }
-  $("lbCur").onclick = () => { lbWeek = "current"; $("lbCur").setAttribute("aria-pressed", "true"); $("lbLast").setAttribute("aria-pressed", "false"); loadBoard(); };
-  $("lbLast").onclick = () => { lbWeek = "last"; $("lbLast").setAttribute("aria-pressed", "true"); $("lbCur").setAttribute("aria-pressed", "false"); loadBoard(); };
+  const segs = { current: "lbCur", last: "lbLast", season: "lbSeason" };
+  for (const [k, id] of Object.entries(segs)) {
+    $(id).onclick = () => { lbWeek = k; for (const [k2, id2] of Object.entries(segs)) $(id2).setAttribute("aria-pressed", String(k2 === k)); loadBoard(); };
+  }
+
+  // ---------- winners ----------
+  async function loadWinners() {
+    const box = $("winnersBody");
+    try {
+      const w = await api("/api/winners");
+      box.replaceChildren();
+      $("prizeNote").textContent = w.prizes.length ? "Prizes: " + w.prizes.map((p, i) => ["1st", "2nd", "3rd"][i] + " " + p).join(" · ") : "Top 3 of every finished week.";
+      if (!w.weeks.length) { box.append(el("p", "note", "No finished weeks yet. Winners appear here every Monday.")); return; }
+      for (const wk of w.weeks) {
+        const card = el("div");
+        const head = el("div", null);
+        head.style.cssText = "display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline";
+        head.append(el("b", null, "Week of " + new Date(wk.week + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" })),
+          el("span", "dim", `${wk.players} team${wk.players === 1 ? "" : "s"}` + (wk.final ? "" : " · final scores still coming in")));
+        card.append(head);
+        const wrap = el("div", "scroll"); const tbl = el("table", "table"); const tb = el("tbody");
+        for (const r of wk.winners) {
+          const tr = el("tr", r.me ? "me" : null);
+          const who = el("td"); who.append(el("div", null, r.name));
+          const addr = el("div", "dim num", w.admin ? r.address : r.short); addr.style.fontSize = "12px"; addr.style.overflowWrap = "anywhere";
+          who.append(addr);
+          const pts = el("td", "r num " + cls(r.points), (r.points > 0 ? "+" : "") + r.points.toFixed(1));
+          const act = el("td", "r");
+          if (w.admin) {
+            const copy = el("button", "btn small", "Copy wallet"); copy.type = "button";
+            copy.onclick = async () => { try { await navigator.clipboard.writeText(r.address); copy.textContent = "Copied"; } catch { copy.textContent = "Select it above"; } };
+            const paid = el("button", "btn small" + (r.paidAt ? " primary" : ""), r.paidAt ? "Paid ✓" : "Mark paid"); paid.type = "button";
+            paid.onclick = async () => { paid.disabled = true; try { await api("/api/winners", { week: wk.week, address: r.address, paid: !r.paidAt }); await loadWinners(); } catch (e) { showError(e.message); paid.disabled = false; } };
+            act.style.whiteSpace = "nowrap"; act.append(copy, document.createTextNode(" "), paid);
+          } else if (r.paid) act.append(el("span", "chip", "Paid ✓"));
+          tr.append(el("td", "rank", ["🥇", "🥈", "🥉"][r.rank - 1] || String(r.rank)), who, pts, act);
+          tb.append(tr);
+        }
+        tbl.append(tb); wrap.append(tbl); card.append(wrap); box.append(card);
+      }
+    } catch (e) { box.replaceChildren(el("p", "note", e.message)); }
+  }
 
   // ---------- tabs & countdown ----------
   document.querySelectorAll(".tabs button").forEach((b) => {
     b.onclick = () => {
       document.querySelectorAll(".tabs button").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
-      for (const v of ["pick", "live", "board", "rules"]) $("view-" + v).hidden = v !== b.dataset.tab;
+      for (const v of ["pick", "live", "board", "winners", "rules"]) $("view-" + v).hidden = v !== b.dataset.tab;
       if (b.dataset.tab === "board") loadBoard();
+      if (b.dataset.tab === "winners") loadWinners();
       try { history.replaceState(null, "", "#" + b.dataset.tab); } catch {}
     };
   });
   const startTab = (location.hash || "").slice(1);
-  if (["live", "board", "rules"].includes(startTab)) $("tab-" + startTab).click();
+  if (["live", "board", "winners", "rules"].includes(startTab)) $("tab-" + startTab).click();
 
   function tickClock() {
     if (!state) return;

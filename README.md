@@ -11,7 +11,10 @@ choose a captain, and score on those wallets' on-chain returns each week. Free t
   plus what they still hold at today's price, compared with what they spent. Old bags they dump don't count.
 - A trader who spends less than 1 SOL in the week scores 0.
 - Team points = the 5 returns added up, captain counted twice.
-- Prices start between 8 and 30 credits (by Kolscan rank) and move each week with results (±4 max, between 5 and 35).
+- Open positions count: coins bought that week and still held are valued at their price when the week closes
+  (Monday 00:00 UTC, from GeckoTerminal price charts), so every trader is valued at the same moment.
+- Prices start between 8 and 30 credits (best-known traders highest) and move each week with results (±4 max, between 5 and 35).
+- **Season ranking** adds up every week's points. **Winners** shows the top 3 of every finished week.
 
 ## What's inside
 
@@ -22,8 +25,10 @@ choose a captain, and score on those wallets' on-chain returns each week. Free t
 | `api/game.js` | Loads the game (week, prices, live scores, your teams) and saves your team |
 | `api/leaderboard.js` | Weekly standings |
 | `api/cron.js` | Updates trader scores from the blockchain, a few traders at a time |
+| `api/winners.js` | Top 3 per finished week; the admin can see full wallets and mark prizes as paid |
 | `lib/traders.js` | The 100 traders, their X accounts and starting prices. Edit this file to add or remove traders |
 | `lib/scoring.js` | Reads each trader's swaps for the week and works out their return |
+| `lib/closeprice.js` | Prices at the exact moment a week closes, for open positions |
 | `lib/game.js` | Budget rules, weekly prices, team points |
 | `lib/auth.js`, `lib/redis.js`, `lib/chain.js`, `lib/weeks.js`, `lib/http.js` | Helpers |
 | `scripts/dev.js` | Run it on your own computer (not used by Vercel) |
@@ -37,7 +42,15 @@ choose a captain, and score on those wallets' on-chain returns each week. Free t
 4. **Settings → Environment Variables**, add:
    - `HELIUS_API_KEY`: your Helius key (the same one as Roaster is fine). Without it scores are simulated (demo mode).
    - `CRON_SECRET`: any long random text you make up. Protects the score updater.
+   - `ADMIN_WALLETS`: your own Solana wallet address. Lets you see winners' full wallets and mark prizes paid.
+   - `PRIZES` (optional): e.g. `1 SOL, 0.5 SOL, 0.25 SOL`. Shown on the Winners tab.
 5. **Deployments → Redeploy** so the new settings are used.
+
+## Paying winners
+
+Every Monday, open the **Winners** tab while signed in with your admin wallet. You'll see the top 3 of the week
+that just ended with their full wallet addresses. Send the prizes from your own wallet (Phantom), then press
+**Mark paid** so players can see it was paid. Wait until "final scores still coming in" disappears first.
 
 ## Keeping scores fresh
 
